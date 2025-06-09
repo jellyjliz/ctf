@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, session
+from flask import Flask, request, session, redirect, send_file
 import random
 from ctf_questions import QUESTIONS
 
@@ -6,60 +6,52 @@ app = Flask(__name__)
 app.secret_key = "ctf_secret_key"
 
 LEVELS = ["easy", "medium", "hard"]
-GLOBAL_USED = {level: set() for level in LEVELS}
+
+def get_next_questions(level):
+    used_ids = session.get("used", {}).get(level, [])
+    available = [q for q in QUESTIONS[level] if q["id"] not in used_ids]
+    return random.sample(available, min(3, len(available)))
 
 @app.route("/")
 def index():
     session.clear()
-    return render_template("index.html", levels=LEVELS)
-
-@app.route("/select/<level>", methods=["GET", "POST"])
-def select_questions(level):
-    if level not in LEVELS:
-        return redirect("/")
-
-    used_ids = GLOBAL_USED[level]
-    available = [q for q in QUESTIONS[level] if q["id"] not in used_ids]
-    choices = [q["id"] for q in available]
-
-    if request.method == "POST":
-        selected = request.form.getlist("questions")
-        if len(selected) != 3:
-            return render_template("select.html", level=level, choices=choices, error="Select exactly 3 questions.")
-        session.setdefault("selected", {})[level] = selected
-        for qid in selected:
-            GLOBAL_USED[level].add(qid)
-        return redirect(f"/level/{level}")
-
-    return render_template("select.html", level=level, choices=choices, error=None)
+    session["used"] = {}
+    session["solved"] = {}
+    return send_file("index.html")
 
 @app.route("/level/<level>", methods=["GET", "POST"])
 def level(level):
-    if level not in LEVELS or "selected" not in session or level not in session["selected"]:
+    if level not in LEVELS:
         return redirect("/")
 
-    selected_ids = session["selected"][level]
-    questions = [q for q in QUESTIONS[level] if q["id"] in selected_ids]
-    correct = 0
-
     if request.method == "POST":
-        for q in questions:
-            answer = request.form.get(q["id"], "").strip().lower()
-            if answer == q["answer"].lower():
-                correct += 1
-        if correct >= 3:
-            next_index = LEVELS.index(level) + 1
-            if next_index < len(LEVELS):
-                return redirect(f"/select/{LEVELS[next_index]}")
+        correct_answers = 0
+        for qid in request.form:
+            answer = request.form[qid].strip()
+            for q in QUESTIONS[level]:
+                if q["id"] == qid and answer.lower() == q["answer"].lower():
+                    correct_answers += 1
+                    session["used"].setdefault(level, []).append(qid)
+        session["solved"][level] = session["solved"].get(level, 0) + correct_answers
+
+        if session["solved"][level] >= 3:
+            next_level_index = LEVELS.index(level) + 1
+            if next_level_index < len(LEVELS):
+                return redirect(f"/level/{LEVELS[next_level_index]}")
             else:
                 return redirect("/win")
-        return render_template("level.html", level=level, questions=questions, error="You must answer at least 3 correctly.")
 
-    return render_template("level.html", level=level, questions=questions, error=None)
+    questions = get_next_questions(level)
+    html = open("level.html").read()
+    question_html = ""
+    for q in questions:
+        question_html += f"<p><b>{q['id']}</b>: {q['question']}<br><input name='{q['id']}' required></p>"
+    html = html.replace("{{level}}", level.title()).replace("{{questions}}", question_html)
+    return html
 
 @app.route("/win")
 def win():
-    return render_template("win.html")
+    return send_file("win.html")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=3000)
