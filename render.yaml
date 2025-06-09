@@ -1,8 +1,5 @@
 services:
   - type: web
-    buildCommand: ""
-    startCommand: "python main.py"
-    autoDeploy: true
     name: ctf-site
     env: static
     staticPublishPath: .
