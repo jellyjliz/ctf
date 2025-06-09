@@ -3,3 +3,6 @@ services:
     name: ctf-site
     env: static
     staticPublishPath: .
+    buildCommand: ""
+    startCommand: ""
+    autoDeploy: true
