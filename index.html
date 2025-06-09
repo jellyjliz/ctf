@@ -1,10 +1,215 @@
 <!DOCTYPE html>
 <html>
-<head><title>CTF Challenge</title></head>
-<body style="background:black; color:lime; text-align:center; font-family:monospace;">
-    <h1>Welcome to the CTF Challenge</h1>
-    <a href="/level/easy">Easy Level</a><br><br>
-    <a href="/level/medium">Medium Level</a><br><br>
-    <a href="/level/hard">Hard Level</a><br><br>
+<head>
+  <title>CTF Quiz Game</title>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <h1>CTF Game Signup</h1>
+  <div id="signupBox">
+    <input type="text" id="teamName" placeholder="Team Name" />
+    <input type="email" id="email" placeholder="Email" />
+    <input type="password" id="password" placeholder="Password" />
+    <button onclick="signUp()">Sign Up</button>
+  </div>
+
+  <div id="categorySelect" style="display:none;">
+    <h2>Pick Difficulty Level</h2>
+    <div class="category easy" onclick="showQuestionList('easy')">Easy (10 points)</div>
+    <div class="category medium" onclick="showQuestionList('medium')">Medium (20 points)</div>
+    <div class="category hard" onclick="showQuestionList('hard')">Hard (30 points)</div>
+  </div>
+
+  <div id="questionList" style="display:none;">
+    <h2 id="questionListTitle"></h2>
+    <ul id="questionListItems"></ul>
+    <button onclick="backToCategories()">Back to Categories</button>
+  </div>
+
+  <div id="questionBox" class="question" style="display:none;">
+    <h2>
+      Question #<span id="qnoText">...</span>
+      (<span id="pointsText">...</span> pts)
+      <span id="difficultyTag"></span>
+    </h2>
+    <p id="questionText">...</p>
+    <input type="text" id="answerInput" placeholder="Your answer" />
+    <button onclick="submitAnswer()">Submit</button>
+  </div>
+
+  <script>
+    // Firebase config (replace with your real config)
+    const firebaseConfig = {
+      apiKey: "AIzaSyAfnE7PPsB3KfbvWe3bw-jF71p1Y_Br-E4",
+      authDomain: "ctfd-9d97b.firebaseapp.com",
+      projectId: "ctfd-9d97b",
+      storageBucket: "ctfd-9d97b.appspot.com",
+      messagingSenderId: "95176890722",
+      appId: "1:95176890722:web:5133e8f10a7d409980f43b"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    let currentUserUID = null;
+    let currentDifficulty = null;
+    let currentQuestion = null;
+
+    // Signup function
+    function signUp() {
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const teamName = document.getElementById('teamName').value.trim();
+
+      if(!email || !password || !teamName) {
+        alert("Please fill all signup fields.");
+        return;
+      }
+
+      auth.createUserWithEmailAndPassword(email, password)
+        .then(cred => {
+          currentUserUID = cred.user.uid;
+          return db.collection('users').doc(currentUserUID).set({
+            "team name": teamName,
+            points: 0
+          });
+        })
+        .then(() => {
+          alert("Signup successful!");
+          document.getElementById("signupBox").style.display = "none";
+          document.getElementById("categorySelect").style.display = "block";
+        })
+        .catch(err => alert(err.message));
+    }
+
+    // Questions dataset (split by difficulty)
+    const questions = {
+      easy: [
+        { qno: 1, text: "Decode Caesar Cipher: <code>KHOOR</code>", answer: "HELLO", points: 10 },
+        { qno: 2, text: "Decode ROT13: <code>Uryyb</code>", answer: "HELLO", points: 10 },
+        // add more easy questions here...
+      ],
+      medium: [
+        { qno: 1, text: "What is binary for 'A'?", answer: "01000001", points: 20 },
+        { qno: 2, text: "Reverse+Caesar combo: <code>Uifsf</code>", answer: "There", points: 20 },
+        // add more medium questions here...
+      ],
+      hard: [
+        { qno: 1, text: "Decode base64: <code>SGVsbG8gd29ybGQ=</code>", answer: "Hello world", points: 30 },
+        { qno: 2, text: "Decode Vigenère cipher: <code>RIJVS</code>", answer: "HELLO", points: 30 },
+        // add more hard questions here...
+      ]
+    };
+
+    // Track which questions have been solved (to skip or disable)
+    let solvedQuestions = {
+      easy: new Set(),
+      medium: new Set(),
+      hard: new Set()
+    };
+
+    // Show question list for chosen difficulty
+    function showQuestionList(difficulty) {
+      currentDifficulty = difficulty;
+      const listDiv = document.getElementById("questionList");
+      const categoryDiv = document.getElementById("categorySelect");
+      const listTitle = document.getElementById("questionListTitle");
+      const listItems = document.getElementById("questionListItems");
+
+      listTitle.innerText = `${difficulty.toUpperCase()} Questions (${questions[difficulty].length})`;
+      listItems.innerHTML = "";
+
+      questions[difficulty].forEach((q, idx) => {
+        const li = document.createElement("li");
+        li.innerHTML = `Question #${q.qno}: <span>${q.text.replace(/<[^>]*>?/gm, '')}</span>`;
+        li.className = "questionItem";
+        if (solvedQuestions[difficulty].has(idx)) {
+          li.classList.add("solved");
+          li.innerText += " ✅ Solved";
+        }
+        li.onclick = () => {
+          if(!solvedQuestions[difficulty].has(idx)) {
+            showQuestion(difficulty, idx);
+          } else {
+            alert("You already solved this question!");
+          }
+        };
+        listItems.appendChild(li);
+      });
+
+      categoryDiv.style.display = "none";
+      listDiv.style.display = "block";
+      document.getElementById("questionBox").style.display = "none";
+    }
+
+    // Go back to difficulty selection screen
+    function backToCategories() {
+      document.getElementById("categorySelect").style.display = "block";
+      document.getElementById("questionList").style.display = "none";
+      document.getElementById("questionBox").style.display = "none";
+      currentDifficulty = null;
+      currentQuestion = null;
+      document.getElementById("answerInput").value = "";
+    }
+
+    // Show question with index for difficulty
+    function showQuestion(difficulty, idx) {
+      currentDifficulty = difficulty;
+      currentQuestion = idx;
+
+      const q = questions[difficulty][idx];
+      document.getElementById("qnoText").innerText = q.qno;
+      document.getElementById("pointsText").innerText = q.points;
+      document.getElementById("questionText").innerHTML = q.text;
+
+      const questionBox = document.getElementById("questionBox");
+      questionBox.className = "question " + difficulty;
+
+      document.getElementById("difficultyTag").innerText = `(${difficulty.toUpperCase()})`;
+      document.getElementById("difficultyTag").className = difficulty;
+
+      document.getElementById("signupBox").style.display = "none";
+      document.getElementById("categorySelect").style.display = "none";
+      document.getElementById("questionList").style.display = "none";
+
+      questionBox.style.display = "block";
+
+      document.getElementById("answerInput").value = "";
+    }
+
+    // Submit answer and update points if correct
+    function submitAnswer() {
+      const answer = document.getElementById("answerInput").value.trim();
+      if(!currentDifficulty || currentQuestion === null) {
+        alert("No question selected!");
+        return;
+      }
+      const q = questions[currentDifficulty][currentQuestion];
+
+      if (answer.toLowerCase() === q.answer.toLowerCase()) {
+        // Add points to user in firestore
+        db.collection('users').doc(currentUserUID).update({
+          points: firebase.firestore.FieldValue.increment(q.points)
+        }).then(() => {
+          alert(`Correct! +${q.points} points awarded.`);
+          solvedQuestions[currentDifficulty].add(currentQuestion);
+          backToCategories();
+        }).catch(err => {
+          alert("Error updating points: " + err.message);
+        });
+      } else {
+        alert("Incorrect, try again.");
+      }
+    }
+  </script>
+
 </body>
 </html>

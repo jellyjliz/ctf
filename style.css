@@ -1,0 +1,96 @@
+body {
+  background-color: #0a0a0a;
+  color: #00ffff;
+  font-family: 'Courier New', monospace;
+  padding: 40px;
+}
+
+input, button {
+  display: block;
+  margin: 10px 0;
+  padding: 10px;
+  font-size: 16px;
+  border-radius: 6px;
+  border: none;
+}
+
+button {
+  cursor: pointer;
+  background-color: #005555;
+  color: #00ffff;
+  font-weight: bold;
+  transition: background-color 0.3s ease;
+}
+
+button:hover {
+  background-color: #009999;
+}
+
+.category {
+  padding: 15px;
+  margin: 10px 0;
+  font-size: 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  border: 2px solid #00ffff;
+  user-select: none;
+  width: 250px;
+}
+
+.category.easy {
+  color: limegreen;
+  border-color: limegreen;
+}
+.category.medium {
+  color: gold;
+  border-color: gold;
+}
+.category.hard {
+  color: tomato;
+  border-color: tomato;
+}
+
+.category:hover {
+  background-color: rgba(0, 255, 255, 0.1);
+}
+
+.question {
+  border: 2px solid #00ffff;
+  padding: 20px;
+  margin-top: 30px;
+  border-radius: 10px;
+  max-width: 600px;
+}
+
+.easy {
+  color: limegreen;
+}
+.medium {
+  color: gold;
+}
+.hard {
+  color: tomato;
+}
+
+#questionList ul {
+  list-style-type: none;
+  padding-left: 0;
+  max-width: 600px;
+}
+
+#questionList ul li {
+  padding: 10px;
+  border-bottom: 1px solid #222;
+  cursor: pointer;
+}
+
+#questionList ul li:hover {
+  background-color: rgba(0, 255, 255, 0.1);
+}
+
+#questionList ul li.solved {
+  color: gray;
+  text-decoration: line-through;
+  cursor: default;
+}
