@@ -144,7 +144,6 @@
         document.getElementById("signupBox").style.display = "none";
         document.getElementById("categorySelect").style.display = "block";
         showLeaderboard();
-        startGlobalTimer();
         return fetchQuestions();  // Fetch questions and go to categories
       }).catch(err => alert(err.message));
     }
