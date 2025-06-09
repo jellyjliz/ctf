@@ -2,6 +2,6 @@ services:
   - type: web
     name: ctf-app
     env: python
-    buildCommand: "blank"
+    buildCommand: ""
     startCommand: "python main.py"
     autoDeploy: true
