@@ -15,16 +15,21 @@
   <h1>CTF Game Signup</h1>
   <div id="signupBox">
     <input type="text" id="teamName" placeholder="Team Name" />
-    <input type="email" id="email" placeholder="Email" />
-    <input type="password" id="password" placeholder="Password" />
     <button onclick="signUp()">Sign Up</button>
   </div>
 
+  <div id="leaderboardContainer" style="display:none;">
+    <h2>Leaderboard</h2>
+    <ol id="leaderboardList"></ol>
+  </div>
+  <button onclick="toggleLeaderboard()">View Leaderboard</button>
+
+
   <div id="categorySelect" style="display:none;">
     <h2>Pick Difficulty Level</h2>
-    <div class="category easy" onclick="showQuestionList('easy')">Easy (10 points)</div>
-    <div class="category medium" onclick="showQuestionList('medium')">Medium (20 points)</div>
-    <div class="category hard" onclick="showQuestionList('hard')">Hard (30 points)</div>
+    <div class="category easy" onclick="showQuestionList('EASY')">Easy (10 points)</div>
+    <div class="category medium" onclick="showQuestionList('MEDIUM')">Medium (20 points)</div>
+    <div class="category hard" onclick="showQuestionList('HARD')">Hard (30 points)</div>
   </div>
 
   <div id="questionList" style="display:none;">
@@ -63,58 +68,104 @@
     let currentDifficulty = null;
     let currentQuestion = null;
 
+    let timerInterval = null;
+    let endTime = null;
+
+    
+
+
+
+
+    function fetchQuestions() {
+      const difficulties = ['EASY', 'MEDIUM', 'HARD']; // uppercase
+      const fetchPromises = difficulties.map(diff => {
+        return db.collection('Questions')
+          .where('Difficulty', '==', diff)
+          .get()
+          .then(snapshot => {
+            questions[diff] = snapshot.docs.map(doc => ({
+              id: doc.id, // store doc ID to update later
+              qno: doc.data().Qno,
+              text: doc.data().TEXT,
+              answer: doc.data().ANS,
+              points: doc.data().points,
+              status: doc.data().Status
+            }));
+          });
+      });
+
+      return Promise.all(fetchPromises).then(() => {
+        console.log("Questions loaded from Firestore:", questions);
+      });
+    }
+
+    function toggleLeaderboard() {
+      const lb = document.getElementById("leaderboardContainer");
+      lb.style.display = lb.style.display === "none" ? "block" : "none";
+    }
+
+
+    function showLeaderboard() {
+      document.getElementById("leaderboardContainer").style.display = "block";
+      const leaderboardList = document.getElementById("leaderboardList");
+      leaderboardList.innerHTML = "";
+
+      db.collection("users").orderBy("points", "desc").limit(10)
+        .onSnapshot(snapshot => {
+          leaderboardList.innerHTML = ""; // Clear before refresh
+          snapshot.forEach(doc => {
+            const team = doc.data();
+            const li = document.createElement("li");
+            li.innerText = `${team["team name"] || "Unnamed"} - ${team.points || 0} pts`;
+            leaderboardList.appendChild(li);
+          });
+        });
+    }
+
+
     // Signup function
     function signUp() {
-      const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
       const teamName = document.getElementById('teamName').value.trim();
 
-      if(!email || !password || !teamName) {
-        alert("Please fill all signup fields.");
+      if (!teamName) {
+        alert("Please enter a team name.");
         return;
       }
 
-      auth.createUserWithEmailAndPassword(email, password)
-        .then(cred => {
-          currentUserUID = cred.user.uid;
-          return db.collection('users').doc(currentUserUID).set({
-            "team name": teamName,
-            points: 0
-          });
-        })
-        .then(() => {
-          alert("Signup successful!");
-          document.getElementById("signupBox").style.display = "none";
-          document.getElementById("categorySelect").style.display = "block";
-        })
-        .catch(err => alert(err.message));
+      // Generate a unique ID for the team
+      const newUserRef = db.collection('users').doc(); // Auto ID
+      currentUserUID = newUserRef.id;
+
+      newUserRef.set({
+        "team name": teamName,
+        points: 0
+      }).then(() => {
+        alert("Signup successful!");
+        document.getElementById("signupBox").style.display = "none";
+        document.getElementById("categorySelect").style.display = "block";
+        showLeaderboard();
+        startGlobalTimer();
+        return fetchQuestions();  // Fetch questions and go to categories
+      }).catch(err => alert(err.message));
     }
+
+    
 
     // Questions dataset (split by difficulty)
     const questions = {
-      easy: [
-        { qno: 1, text: "Decode Caesar Cipher: <code>KHOOR</code>", answer: "HELLO", points: 10 },
-        { qno: 2, text: "Decode ROT13: <code>Uryyb</code>", answer: "HELLO", points: 10 },
-        // add more easy questions here...
-      ],
-      medium: [
-        { qno: 1, text: "What is binary for 'A'?", answer: "01000001", points: 20 },
-        { qno: 2, text: "Reverse+Caesar combo: <code>Uifsf</code>", answer: "There", points: 20 },
-        // add more medium questions here...
-      ],
-      hard: [
-        { qno: 1, text: "Decode base64: <code>SGVsbG8gd29ybGQ=</code>", answer: "Hello world", points: 30 },
-        { qno: 2, text: "Decode Vigenère cipher: <code>RIJVS</code>", answer: "HELLO", points: 30 },
-        // add more hard questions here...
-      ]
+      EASY: [],
+      MEDIUM: [],
+      HARD: []
     };
+
 
     // Track which questions have been solved (to skip or disable)
     let solvedQuestions = {
-      easy: new Set(),
-      medium: new Set(),
-      hard: new Set()
+      EASY: new Set(),
+      MEDIUM: new Set(),
+      HARD: new Set()
     };
+
 
     // Show question list for chosen difficulty
     function showQuestionList(difficulty) {
@@ -127,21 +178,26 @@
       listTitle.innerText = `${difficulty.toUpperCase()} Questions (${questions[difficulty].length})`;
       listItems.innerHTML = "";
 
+      if (!questions[difficulty] || questions[difficulty].length === 0) {
+        listItems.innerHTML = "<li>No questions available.</li>";
+        return;
+      }
+
       questions[difficulty].forEach((q, idx) => {
         const li = document.createElement("li");
+
         li.innerHTML = `Question #${q.qno}: <span>${q.text.replace(/<[^>]*>?/gm, '')}</span>`;
         li.className = "questionItem";
-        if (solvedQuestions[difficulty].has(idx)) {
+
+        if (q.status === "Complete") {
           li.classList.add("solved");
-          li.innerText += " ✅ Solved";
+          li.innerHTML += " ❌ Solved by another team";
+          li.style.textDecoration = "line-through";
+          li.style.pointerEvents = "none";
+        } else {
+          li.onclick = () => showQuestion(difficulty, idx);
         }
-        li.onclick = () => {
-          if(!solvedQuestions[difficulty].has(idx)) {
-            showQuestion(difficulty, idx);
-          } else {
-            alert("You already solved this question!");
-          }
-        };
+
         listItems.appendChild(li);
       });
 
@@ -165,7 +221,13 @@
       currentDifficulty = difficulty;
       currentQuestion = idx;
 
+      // Get the question from the fetched questions
       const q = questions[difficulty][idx];
+      if (!q) {
+        alert("Question not found!");
+        return;
+      }
+
       document.getElementById("qnoText").innerText = q.qno;
       document.getElementById("pointsText").innerText = q.points;
       document.getElementById("questionText").innerHTML = q.text;
@@ -176,6 +238,7 @@
       document.getElementById("difficultyTag").innerText = `(${difficulty.toUpperCase()})`;
       document.getElementById("difficultyTag").className = difficulty;
 
+      // Show this screen and hide others
       document.getElementById("signupBox").style.display = "none";
       document.getElementById("categorySelect").style.display = "none";
       document.getElementById("questionList").style.display = "none";
@@ -184,6 +247,7 @@
 
       document.getElementById("answerInput").value = "";
     }
+
 
     // Submit answer and update points if correct
     function submitAnswer() {
@@ -195,21 +259,25 @@
       const q = questions[currentDifficulty][currentQuestion];
 
       if (answer.toLowerCase() === q.answer.toLowerCase()) {
-        // Add points to user in firestore
+        // Add points to user
         db.collection('users').doc(currentUserUID).update({
           points: firebase.firestore.FieldValue.increment(q.points)
         }).then(() => {
+          // Mark this question globally as Complete
+          return db.collection('Questions').doc(q.id).update({
+            Status: "Complete"
+          });
+        }).then(() => {
           alert(`Correct! +${q.points} points awarded.`);
           solvedQuestions[currentDifficulty].add(currentQuestion);
+          return fetchQuestions(); // Reload to reflect status updates
+        }).then(() => {
           backToCategories();
         }).catch(err => {
-          alert("Error updating points: " + err.message);
+          alert("Error: " + err.message);
         });
-      } else {
-        alert("Incorrect, try again.");
       }
     }
   </script>
-
 </body>
 </html>
