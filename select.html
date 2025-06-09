@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head><title>Select Questions</title></head>
+<body style="background:black; color:lime; text-align:center;">
+  <h2>📋 Select 3 Questions for {{ level.title() }} Level</h2>
+  {% if error %}<p style="color:red">{{ error }}</p>{% endif %}
+  <form method="POST">
+    {% for qid in choices %}
+      <input type="checkbox" name="questions" value="{{ qid }}"> {{ qid }}<br>
+    {% endfor %}
+    <button type="submit">Start Level</button>
+  </form>
+</body>
+</html>

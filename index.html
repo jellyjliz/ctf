@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html>
+<head><title>CTF Levels</title></head>
+<body style="background:black; color:lime; text-align:center;">
+  <h1>🔐 Welcome to the CTF Challenge</h1>
+  {% for level in levels %}
+    <a href="/select/{{ level }}"><button>{{ level.title() }} Level</button></a><br><br>
+  {% endfor %}
+</body>
+</html>

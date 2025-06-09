@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head><title>Archive Room</title></head>
+<body style="font-family:monospace; background:black; color:lime; text-align:center;">
+  <h2>📁 Archive Room</h2>
+  <p>You find a Python file. Something’s hidden in the code.</p>
+  <p>👀 Hint: Check page source!</p>
+  <!-- flag{hidden_in_code} -->
+  {% if error %}<p style="color:red;">❌ Try again.</p>{% endif %}
+  <form method="post">
+    <input name="answer" placeholder="Enter hidden flag" />
+    <button type="submit">Submit</button>
+  </form>
+</body>
+</html>
