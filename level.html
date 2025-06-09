@@ -1,15 +1,12 @@
 <!DOCTYPE html>
 <html>
-<head><title>{{ level.title() }} Questions</title></head>
-<body style="background:black; color:lime; text-align:center;">
-  <h2>🧠 Solve the questions!</h2>
-  {% if error %}<p style="color:red">{{ error }}</p>{% endif %}
-  <form method="POST">
-    {% for q in questions %}
-      <p>{{ q.question }}</p>
-      <input type="text" name="{{ q.id }}"><br><br>
-    {% endfor %}
-    <button type="submit">Submit Answers</button>
-  </form>
+<head><title>{{level}} Level</title></head>
+<body style="background:black; color:lime; font-family:monospace; text-align:center;">
+    <h1>{{level}} Level</h1>
+    <form method="POST">
+        {{questions}}
+        <br>
+        <button type="submit">Submit</button>
+    </form>
 </body>
 </html>
